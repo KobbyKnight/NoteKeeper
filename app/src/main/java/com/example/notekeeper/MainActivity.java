@@ -3,123 +3,90 @@ package com.example.notekeeper;
 import android.content.Intent;
 import android.os.Bundle;
 
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.snackbar.Snackbar;
+
+import android.view.View;
+
+import androidx.core.view.GravityCompat;
+import androidx.appcompat.app.ActionBarDrawerToggle;
+
+import android.view.MenuItem;
+
+import com.google.android.material.navigation.NavigationView;
+
+import androidx.drawerlayout.widget.DrawerLayout;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
-import android.provider.ContactsContract;
 import android.view.Menu;
-import android.view.MenuItem;
-import android.widget.ArrayAdapter;
-import android.widget.EditText;
-import android.widget.Spinner;
 
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
-    public static final String NOTE_POSITION = "com.example.notekeeper.NOTE_POSITION";
-    public static final String ORIGINAL_NOTE_COURSE_ID = "com.example.notekeeper.ORIGINAL_NOTE_COURSE_ID";
-    public static final String ORIGINAL_NOTE_TITLE = "com.example.notekeeper.ORIGINAL_NOTE_TITLE";
-    public static final String ORIGINAL_NOTE_TEXT = "com.example.notekeeper.ORIGINAL_NOTE_TEXT";
-
-
-    public static final int POSITION_NOT_SET = -1;
-    private NoteInfo note;
-    private boolean isNewNote;
-    private Spinner spinnerCourses;
-    private EditText textNoteTitle;
-    private EditText textNote;
-    private int notePosition;
-    private boolean isCancelling;
-    private String originalNoteCourseId;
-    private String originalTextNote;
-    private String originalNoteTitle;
-
+public class MainActivity extends AppCompatActivity
+        implements NavigationView.OnNavigationItemSelectedListener {
+    private NoteRecyclerAdapter aNoteRecyclerAdapter;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        FloatingActionButton fab = findViewById(R.id.fab);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startActivity(new Intent(MainActivity.this, NoteActivity.class));
 
-        spinnerCourses = findViewById(R.id.spinner_courses);
-        List<CourseInfo> courses = DataManager.getInstance().getCourses();
-        ArrayAdapter<CourseInfo> adapterCourses =
-                new ArrayAdapter<>(this, android.R.layout.simple_spinner_item,courses);
-        adapterCourses.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerCourses.setAdapter(adapterCourses);
+            }
+        });
+        DrawerLayout drawer = findViewById(R.id.drawer_layout);
+        NavigationView navigationView = findViewById(R.id.nav_view);
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        drawer.addDrawerListener(toggle);
+        toggle.syncState();
+        navigationView.setNavigationItemSelectedListener(this);
 
-        readDisplayStateValues();
-        if (savedInstanceState == null){
-            saveOriginalNoteValues();
-        }else{
-            restoreOriginalNoteValues(savedInstanceState);
-        }
-        textNoteTitle = findViewById(R.id.text_note_title);
-        textNote = findViewById(R.id.text_note_text);
-
-        if (!isNewNote)
-            displayNote(spinnerCourses, textNoteTitle, textNote);
-
+        initialiseDisplayContent();
     }
 
-    // restores the original values after cancel
-    private void restoreOriginalNoteValues(Bundle savedInstanceState) {
-        originalNoteCourseId = savedInstanceState.getString(ORIGINAL_NOTE_COURSE_ID);
-        originalNoteTitle = savedInstanceState.getString(ORIGINAL_NOTE_TITLE);
-        originalTextNote = savedInstanceState.getString(ORIGINAL_NOTE_TEXT);
-    }
-
-//    OVERRIDE SAVE INSTANCE STATE TO KEEP ORIGINAL VALUES
+    //    to ensure when note list is changed data
+    //    manger knows and this prevent app from crashing
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putString(ORIGINAL_NOTE_COURSE_ID,originalNoteCourseId);
-        outState.putString(ORIGINAL_NOTE_TEXT,originalTextNote);
-        outState.putString(ORIGINAL_NOTE_TITLE,originalNoteTitle);
+    protected void onResume() {
+        super.onResume();
+        // adapterNotes.notifyDataSetChanged();
+        aNoteRecyclerAdapter.notifyDataSetChanged();
     }
 
-    private void saveOriginalNoteValues() {
-        if (isNewNote){
-            return;
+    private void initialiseDisplayContent() {
+
+        final RecyclerView recycleNotes = findViewById(R.id.item_list);
+        final LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        recycleNotes.setLayoutManager(layoutManager);
+        List<NoteInfo> notes = DataManager.getInstance().getNotes();
+        aNoteRecyclerAdapter = new NoteRecyclerAdapter(this,notes);
+        recycleNotes.setAdapter(aNoteRecyclerAdapter);
+
+    }
+    @Override
+    public void onBackPressed() {
+        DrawerLayout drawer = findViewById(R.id.drawer_layout);
+        if (drawer.isDrawerOpen(GravityCompat.START)) {
+            drawer.closeDrawer(GravityCompat.START);
+        } else {
+            super.onBackPressed();
         }
-        originalNoteCourseId = note.getCourse().getCourseId();
-        originalTextNote = note.getText();
-        originalNoteTitle = note.getTitle();
-
-    }
-
-    private void displayNote(Spinner spinnerCourses, EditText textNoteTitle, EditText textNote) {
-        List<CourseInfo> courses = DataManager.getInstance().getCourses();
-        int courseIndex = courses.indexOf(note.getCourse());
-        spinnerCourses.setSelection(courseIndex);
-        textNoteTitle.setText(note.getTitle());
-        textNote.setText(note.getText());
-    }
-
-    private void readDisplayStateValues() {
-        Intent intent = getIntent();
-//        note = intent.getParcelableExtra(NOTE_POSITION);
-//        isNewNote = note == null;
-        int position = intent.getIntExtra(NOTE_POSITION, POSITION_NOT_SET);
-        isNewNote = position == POSITION_NOT_SET;
-        //Check if new note or not
-        if(isNewNote){
-            createNewNote();
-        }else{
-            note = DataManager.getInstance().getNotes().get(position);
-        }
-    }
-
-    private void createNewNote() {
-        DataManager dm = DataManager.getInstance();
-        notePosition = dm.createNewNote();
-        note =  dm.getNotes().get(notePosition);
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
+        getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
 
@@ -131,54 +98,35 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_send_mail) {
-            sendEmail();
+        if (id == R.id.action_settings) {
             return true;
-        }else if(id == R.id.action_cancel){
-            isCancelling = true;
-            finish();
         }
 
         return super.onOptionsItemSelected(item);
     }
 
+    @SuppressWarnings("StatementWithEmptyBody")
     @Override
-    protected void onPause() {
-        super.onPause();
+    public boolean onNavigationItemSelected(MenuItem item) {
+        // Handle navigation view item clicks here.
+        int id = item.getItemId();
 
-        if (isCancelling){
-            if(isNewNote){
-                DataManager.getInstance().removeNote(notePosition);
-            }else{
-                storePreviousNoteValues();
-            }
-        }else{
-            saveNote();
+        if (id == R.id.nav_home) {
+            // Handle the camera action
+        } else if (id == R.id.nav_gallery) {
+
+        } else if (id == R.id.nav_slideshow) {
+
+        } else if (id == R.id.nav_tools) {
+
+        } else if (id == R.id.nav_share) {
+
+        } else if (id == R.id.nav_send) {
+
         }
-    }
 
-    private void storePreviousNoteValues() {
-        CourseInfo course = DataManager.getInstance().getCourse(originalNoteCourseId);
-        note.setCourse(course);
-        note.setTitle(originalNoteTitle);
-        note.setText(originalTextNote);
-    }
-
-    private void saveNote() {
-        note.setCourse((CourseInfo) spinnerCourses.getSelectedItem());
-        note.setText(textNote.getText().toString());
-        note.setTitle(textNoteTitle.getText().toString());
-    }
-
-    private void sendEmail() {
-        CourseInfo courseInfo = (CourseInfo) spinnerCourses.getSelectedItem();
-        String subject = textNoteTitle.getText().toString();
-        String body = "Check out this Pluralsight video \'"
-                + courseInfo.getTitle() +"\'\n"+textNote.getText().toString();
-        Intent intent = new Intent(Intent.ACTION_SEND);
-        intent.setType("message/rfc2822");
-        intent.putExtra(Intent.EXTRA_SUBJECT,subject);
-        intent.putExtra(Intent.EXTRA_TEXT,body);
-        startActivity(intent);
+        DrawerLayout drawer = findViewById(R.id.drawer_layout);
+        drawer.closeDrawer(GravityCompat.START);
+        return true;
     }
 }
