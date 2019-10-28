@@ -11,3 +11,4 @@
 /build
 /captures
 .externalNativeBuild
+/app/src/androidTest/java/com/example/notekeeper/NextTroughNotesTest
