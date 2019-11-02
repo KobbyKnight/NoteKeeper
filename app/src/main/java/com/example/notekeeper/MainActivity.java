@@ -13,6 +13,7 @@ import androidx.appcompat.app.ActionBarDrawerToggle;
 import android.view.MenuItem;
 
 import com.google.android.material.navigation.NavigationView;
+import com.google.android.material.snackbar.Snackbar;
 
 import androidx.drawerlayout.widget.DrawerLayout;
 
@@ -72,7 +73,8 @@ public class MainActivity extends AppCompatActivity
 
         aRecyclerItems = findViewById(R.id.item_list);
         aLayoutManager = new LinearLayoutManager(this);
-        aCourseLayoutManager = new GridLayoutManager(this,2);
+        aCourseLayoutManager = new GridLayoutManager(this,
+                getResources().getInteger(R.integer.courses_grid_span));
         List<NoteInfo> notes = DataManager.getInstance().getNotes();
         aNoteRecyclerAdapter = new NoteRecyclerAdapter(this,notes);
         List<CourseInfo> course = DataManager.getInstance().getCourses();
@@ -142,13 +144,17 @@ public class MainActivity extends AppCompatActivity
         } else if (id == R.id.nav_courses) {
             displayCourses();
         } else if (id == R.id.nav_share) {
-
+            handleSelection(getString(R.string.nav_share_message));
         } else if (id == R.id.nav_send) {
-
+            handleSelection(getString(R.string.nav_send_message));
         }
 
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
+    }
+    public void handleSelection(String message){
+        View view = findViewById(R.id.item_list);
+        Snackbar.make(view,message,Snackbar.LENGTH_LONG).show();
     }
 }
